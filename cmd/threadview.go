@@ -1,7 +1,11 @@
 package main
 
 import (
+	"io"
 	"strings"
+
+	"github.com/mattn/go-runewidth"
+	"golang.org/x/net/html"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -10,6 +14,8 @@ import (
 type TextBlock struct {
 	text  string
 	width int
+	style tcell.Style
+	ref   int // url index
 }
 
 type TextLine struct {
@@ -52,7 +58,12 @@ func parseText(text string, width int) Text {
 	var t Text
 
 	flushToken := func() {
-		tokens = append(tokens, TextBlock{currToken, widthToken})
+		rw := runewidth.StringWidth(currToken)
+		/*if rw != widthToken {
+			panic(fmt.Sprintf("Length mistmatch %v %v %v", rw, width, currToken))
+		}*/
+		tokens = append(tokens, TextBlock{text: currToken, width: rw, style: tcell.StyleDefault})
+		//tokens = append(tokens, TextBlock{currToken, widthToken})
 		currToken = ""
 		widthToken = 0
 	}
@@ -87,7 +98,6 @@ func parseText(text string, width int) Text {
 			widthToken++
 		}
 	}
-	//ioutil.WriteFile("test.dump", []byte(tokens), 0666)
 
 	// split tokens to lines
 	var tl TextLine
@@ -123,6 +133,69 @@ func parseText(text string, width int) Text {
 	return t
 }
 
+type HtmlAttr struct {
+	attrName  string
+	attrValue string
+}
+
+func emitOpenTag(tag string, attrs []HtmlAttr) {
+
+}
+
+func emitCloseTag(tag string) {
+
+}
+
+func emitText(tag string) {
+
+}
+
+func ParseHTML2(source string) {
+	tokenizer := html.NewTokenizer(strings.NewReader(source))
+
+	for {
+		tokenType := tokenizer.Next()
+
+		switch tokenType {
+		case html.ErrorToken:
+			if tokenizer.Err() == io.EOF {
+				return
+			}
+			// unknown error
+			panic(tokenizer.Err())
+
+		case html.StartTagToken, html.EndTagToken:
+			tagName, hasAttrs := tokenizer.TagName()
+			tagNameStr := string(tagName)
+
+			if tokenType == html.StartTagToken {
+				var attrs []HtmlAttr
+
+				if hasAttrs {
+					for {
+						key, value, more := tokenizer.TagAttr()
+
+						attrs = append(attrs, HtmlAttr{string(key), string(value)})
+						if !more {
+							break
+						}
+					}
+				}
+
+				emitOpenTag(tagNameStr, attrs)
+
+			} else {
+				// html.EndTagToken
+				emitCloseTag(tagNameStr)
+			}
+
+		case html.TextToken:
+			tokenizer.Text()
+			emitText(string(tokenizer.Text()))
+		}
+	}
+}
+
 func (tv *ThreadView) Draw(screen tcell.Screen) {
 	x, y, w, h := tv.Box.GetInnerRect()
 
@@ -140,8 +213,9 @@ func (tv *ThreadView) Draw(screen tcell.Screen) {
 		}
 	}*/
 
-	colors := [...]tcell.Color{tcell.ColorRed, tcell.ColorGreen, tcell.ColorBlue}
+	colors := []tcell.Color{tcell.ColorRed, tcell.ColorGreen, tcell.ColorBlue}
 	tv.color %= len(colors)
+	//color := colors[tv.color]
 
 	//xoffs := 0
 	//yoffs := 0
@@ -196,7 +270,7 @@ func (tv *ThreadView) Draw(screen tcell.Screen) {
 				for _, ch := range b.text {
 
 					if xx < w {
-						screen.SetContent(x+xx-5, y+yy, ch, nil, tcell.StyleDefault)
+						screen.SetContent(x+xx, y+yy, ch, nil, b.style)
 						xx++
 					}
 				}
@@ -205,7 +279,7 @@ func (tv *ThreadView) Draw(screen tcell.Screen) {
 
 		// fill left space
 		for lx := xx; lx < w; lx++ {
-			screen.SetContent(x+lx, y+yy, '.', nil, tcell.StyleDefault)
+			screen.SetContent(x+lx, y+yy, ' ', nil, tcell.StyleDefault)
 		}
 
 	}
