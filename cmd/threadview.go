@@ -206,53 +206,8 @@ func (tv *ThreadView) Draw(screen tcell.Screen) {
 		tv.oldWidth = w
 	}
 
-	// Clear output area
-	/*for xx := 0; xx < w; xx++ {
-		for yy := 0; yy < h; yy++ {
-			screen.SetContent(x+xx, y+yy, '.', nil, tcell.StyleDefault)
-		}
-	}*/
-
 	colors := []tcell.Color{tcell.ColorRed, tcell.ColorGreen, tcell.ColorBlue}
 	tv.color %= len(colors)
-	//color := colors[tv.color]
-
-	//xoffs := 0
-	//yoffs := 0
-	/*for _, l := range tv.lines {
-		for _, ch := range l {
-			curry := y + yoffs - tv.vscroll
-
-			if curry >= y && curry < y+h {
-				screen.SetContent(x+xoffs, curry, ch, nil, tcell.StyleDefault.Foreground(colors[tv.color]))
-			}
-			xoffs++
-			if xoffs >= w {
-				xoffs = 0
-				yoffs++
-			}
-		}
-
-		yoffs++
-		xoffs = 0
-	}
-	*/
-
-	/*
-		for _, l := range tv.tlines.lines {
-			for _, b := range l.blocks {
-				for _, ch := range b.text {
-					curry := y + yoffs - tv.vscroll
-					if curry >= y && curry < y+h {
-						screen.SetContent(x+xoffs, curry, ch, nil, tcell.StyleDefault.Foreground(colors[tv.color]))
-					}
-					xoffs++
-				}
-			}
-			yoffs++
-			xoffs = 0
-		}
-	*/
 
 	//
 	for yy := 0; yy < h; yy++ {
