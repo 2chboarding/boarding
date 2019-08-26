@@ -3,12 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sort"
-	"strings"
-
-	"golang.org/x/net/html"
 )
 
 // Описание получаемой структуры JSON, указаны только нужные поля
@@ -196,94 +192,4 @@ func (ib *ImageBoard) updatePost(ID string, p _post) {
 		Comment:   p.Comment,
 		Timestamp: p.Timestamp,
 	}
-}
-
-// ParseHTML преобразует html теги в форматирование tview.TextView
-func ParseHTML(source string) string {
-	result := ""
-	t := html.NewTokenizer(strings.NewReader(source))
-
-	for {
-		tt := t.Next()
-
-		switch tt {
-		case html.ErrorToken:
-			err := t.Err()
-			if err == io.EOF {
-				return result
-			}
-
-			panic(err)
-
-		case html.StartTagToken:
-			tn, hasAttr := t.TagName()
-			tok := string(tn)
-			_ = hasAttr
-			switch tok {
-			case "br":
-				result += "\n"
-
-			case "a":
-				result += `[#00ff00]["1"]`
-
-			case "strong":
-				result += `[::b]`
-
-			default:
-				/*result += "<" + tok
-
-				if hasAttr {
-					for {
-						key, value, more := t.TagAttr()
-						_ = key
-						_ = value
-						_ = more
-						result += " " + string(key) + ":" + string(value)
-						if !more {
-							break
-						}
-					}
-				}
-				result += ">"*/
-			}
-
-		case html.EndTagToken:
-			tn, _ := t.TagName()
-			tok := string(tn)
-
-			switch tok {
-			case "a":
-				result += `[""][white]`
-
-			case "strong":
-				result += `[::-]`
-
-			default:
-				/*result += "</" + tok + ">"*/
-			}
-
-		case html.TextToken:
-			result += string(t.Text())
-		}
-	}
-
-	//return result
-}
-
-func renderPost(post *PostStruct) string {
-	s := ParseHTML(post.Comment)
-	//fmt.Println(s)
-	return s
-}
-
-// RenderThread рендерит указанный тред в виде строки для отображения
-func (ib *ImageBoard) RenderThread(boardID string, threadID PostID) string {
-	var result string
-	for _, postID := range ib.Boards[boardID].Threads[threadID].Posts {
-		post := ib.Boards[boardID].Posts[postID]
-		result += "[yellow]" + ParseHTML(post.Name) + "[white]" + "\n"
-		result += ParseHTML(post.Comment) + "\n\n"
-	}
-
-	return result
 }

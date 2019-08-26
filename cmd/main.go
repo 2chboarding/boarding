@@ -36,8 +36,7 @@ func loadThreadsList(boardID string, tl *tview.List, ib *ImageBoard) {
 	tl.Clear()
 
 	for _, t := range ib.Boards[boardID].ThreadsIndex {
-
-		tl.AddItem(ParseHTML(ib.Boards[boardID].Posts[t].Subject), "", 0, nil)
+		tl.AddItem(ib.Boards[boardID].Posts[t].Subject, "", 0, nil)
 	}
 }
 
@@ -48,13 +47,17 @@ func Display() {
 	app := tview.NewApplication()
 	bs := tview.NewTreeView()
 	tl := tview.NewList().ShowSecondaryText(false)
-	tv := tview.NewTextView().SetWordWrap(true).SetRegions(true).SetDynamicColors(true)
+	//tv := tview.NewTextView().SetWordWrap(true).SetRegions(true).SetDynamicColors(true)
+	tv := &ThreadView{Box: tview.NewBox()}
 
 	bs.SetBorder(true)
 	tl.SetBorder(true)
-	tv.SetBorder(true)
+	//tv.SetBorder(true)
 
-	flex := tview.NewFlex().AddItem(bs, 0, 2, true).AddItem(tl, 0, 5, false).AddItem(tv, 0, 7, false)
+	flex := tview.NewFlex().AddItem(bs, 0, 1, true).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(tl, 0, 2, false).AddItem(tv, 0, 5, false), 0, 8, false)
+
 	app.SetRoot(flex, true)
 	app.SetFocus(bs)
 
