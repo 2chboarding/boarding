@@ -36,8 +36,7 @@ func loadThreadsList(boardID string, tl *tview.List, ib *ImageBoard) {
 	tl.Clear()
 
 	for _, t := range ib.Boards[boardID].ThreadsIndex {
-
-		tl.AddItem(ParseHTML(ib.Boards[boardID].Posts[t].Subject), "", 0, nil)
+		tl.AddItem(ib.Boards[boardID].Posts[t].Subject, "", 0, nil)
 	}
 }
 
@@ -85,7 +84,7 @@ func Display() {
 		if boardID != "" {
 			thID := ib.Boards[boardID].ThreadsIndex[index]
 			ib.UpdateThread(boardID, thID)
-			t := ib.RenderThread2(boardID, thID)
+			t := ib.RenderThread(boardID, thID)
 			_ = t
 			tv.SetText(t)
 			tv.ScrollToBeginning()
@@ -98,7 +97,7 @@ func Display() {
 	tl.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if boardID != "" {
 			thID := ib.Boards[boardID].ThreadsIndex[index]
-			t := ib.RenderThread2(boardID, thID)
+			t := ib.RenderThread(boardID, thID)
 			_ = t
 			tv.SetText(t)
 			tv.ScrollToBeginning()

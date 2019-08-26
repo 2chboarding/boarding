@@ -259,8 +259,8 @@ func (tv *ThreadView) InputHandler() func(event *tcell.EventKey, setFocus func(p
 	})
 }
 
-// RenderThread2 join all posts text to one big
-func (ib *ImageBoard) RenderThread2(boardID string, threadID PostID) string {
+// RenderThread join all posts text to one big
+func (ib *ImageBoard) RenderThread(boardID string, threadID PostID) string {
 
 	var result string
 	for _, postID := range ib.Boards[boardID].Threads[threadID].Posts {
