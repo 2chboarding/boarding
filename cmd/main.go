@@ -48,13 +48,17 @@ func Display() {
 	app := tview.NewApplication()
 	bs := tview.NewTreeView()
 	tl := tview.NewList().ShowSecondaryText(false)
-	tv := tview.NewTextView().SetWordWrap(true).SetRegions(true).SetDynamicColors(true)
+	//tv := tview.NewTextView().SetWordWrap(true).SetRegions(true).SetDynamicColors(true)
+	tv := &ThreadView{Box: tview.NewBox()}
 
 	bs.SetBorder(true)
 	tl.SetBorder(true)
-	tv.SetBorder(true)
+	//tv.SetBorder(true)
 
-	flex := tview.NewFlex().AddItem(bs, 0, 2, true).AddItem(tl, 0, 5, false).AddItem(tv, 0, 7, false)
+	flex := tview.NewFlex().AddItem(bs, 0, 1, true).
+		AddItem(tview.NewFlex().SetDirection(tview.FlexRow).
+			AddItem(tl, 0, 2, false).AddItem(tv, 0, 5, false), 0, 8, false)
+
 	app.SetRoot(flex, true)
 	app.SetFocus(bs)
 
@@ -81,7 +85,7 @@ func Display() {
 		if boardID != "" {
 			thID := ib.Boards[boardID].ThreadsIndex[index]
 			ib.UpdateThread(boardID, thID)
-			t := ib.RenderThread(boardID, thID)
+			t := ib.RenderThread2(boardID, thID)
 			_ = t
 			tv.SetText(t)
 			tv.ScrollToBeginning()
@@ -94,7 +98,7 @@ func Display() {
 	tl.SetChangedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if boardID != "" {
 			thID := ib.Boards[boardID].ThreadsIndex[index]
-			t := ib.RenderThread(boardID, thID)
+			t := ib.RenderThread2(boardID, thID)
 			_ = t
 			tv.SetText(t)
 			tv.ScrollToBeginning()

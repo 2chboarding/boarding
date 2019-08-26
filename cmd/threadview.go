@@ -1,16 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
-	"github.com/mattn/go-runewidth"
 	"golang.org/x/net/html"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 )
 
+// TextBlock keeps text block (word/token) with single style
 type TextBlock struct {
 	text  string
 	width int
@@ -18,11 +19,15 @@ type TextBlock struct {
 	ref   int // url index
 }
 
+// TextLine keeps single text line with width not more that specified
 type TextLine struct {
 	blocks []TextBlock
+	width  int
 }
 
+// Text keeps full text splitted by lines and blocks
 type Text struct {
+	width int
 	lines []TextLine
 }
 
@@ -37,120 +42,27 @@ type ThreadView struct {
 	oldWidth int
 }
 
+// SetText set new text to ThreadVew
 func (tv *ThreadView) SetText(text string) {
 	tv.text = text
 	tv.lines = strings.Split(text, "\n")
 
 	_, _, w, _ := tv.Box.GetInnerRect()
-	tv.tlines = parseText(text, w)
+	tv.tlines = parseText2(text, w)
 }
 
+// ScrollToBeginning scroll ThreadView to first line
 func (tv *ThreadView) ScrollToBeginning() {
 	tv.vscroll = 0
 }
 
-func parseText(text string, width int) Text {
-	var currToken string
-	var widthToken int
-
-	var inWord = false
-	var tokens []TextBlock
-	var t Text
-
-	flushToken := func() {
-		rw := runewidth.StringWidth(currToken)
-		/*if rw != widthToken {
-			panic(fmt.Sprintf("Length mistmatch %v %v %v", rw, width, currToken))
-		}*/
-		tokens = append(tokens, TextBlock{text: currToken, width: rw, style: tcell.StyleDefault})
-		//tokens = append(tokens, TextBlock{currToken, widthToken})
-		currToken = ""
-		widthToken = 0
-	}
-
-	// split input text to tokens (words)
-	for _, rune := range text {
-
-		switch rune {
-		case '\n':
-			// new line
-			flushToken()
-			currToken = "\n"
-			widthToken = 0
-			flushToken()
-
-		case ' ', '\t':
-			// whitespace
-			if inWord {
-				flushToken()
-				inWord = false
-			}
-			currToken += string(rune)
-			widthToken++
-
-		default:
-			// regular symbol
-			if !inWord {
-				flushToken()
-				inWord = true
-			}
-			currToken += string(rune)
-			widthToken++
-		}
-	}
-
-	// split tokens to lines
-	var tl TextLine
-	var tll int
-
-	flushLine := func() {
-		t.lines = append(t.lines, tl)
-		tll = 0
-		//tl.blocks = tl.blocks[0:0]
-		tl.blocks = nil
-	}
-
-	for _, tk := range tokens {
-
-		// unconditional flush line when \n occured
-		if tk.text == "\n" {
-			flushLine()
-		} else {
-			// if current line too long, flush and start new
-			if tll+tk.width > width {
-				flushLine()
-			}
-
-			// append current token to line and update length
-			tl.blocks = append(tl.blocks, tk)
-			tll += tk.width
-		}
-	}
-
-	// flush remains
-	flushLine()
-
-	return t
-}
-
-type HtmlAttr struct {
+type tagAttr struct {
 	attrName  string
 	attrValue string
 }
 
-func emitOpenTag(tag string, attrs []HtmlAttr) {
-
-}
-
-func emitCloseTag(tag string) {
-
-}
-
-func emitText(tag string) {
-
-}
-
-func ParseHTML2(source string) {
+// ParseHTML2 Parse HTML and emit tokens
+func ParseHTML2(source string, eventFunc func(tt html.TokenType, token string, attrs []tagAttr)) {
 	tokenizer := html.NewTokenizer(strings.NewReader(source))
 
 	for {
@@ -169,39 +81,126 @@ func ParseHTML2(source string) {
 			tagNameStr := string(tagName)
 
 			if tokenType == html.StartTagToken {
-				var attrs []HtmlAttr
+				var attrs []tagAttr
 
 				if hasAttrs {
 					for {
 						key, value, more := tokenizer.TagAttr()
 
-						attrs = append(attrs, HtmlAttr{string(key), string(value)})
+						attrs = append(attrs, tagAttr{string(key), string(value)})
 						if !more {
 							break
 						}
 					}
 				}
 
-				emitOpenTag(tagNameStr, attrs)
+				eventFunc(tokenType, tagNameStr, attrs)
 
 			} else {
 				// html.EndTagToken
-				emitCloseTag(tagNameStr)
+				if hasAttrs {
+					panic("EndTag has attributes")
+				}
+				//emitCloseTag(tagNameStr)
+				eventFunc(tokenType, tagNameStr, nil)
 			}
 
 		case html.TextToken:
-			tokenizer.Text()
-			emitText(string(tokenizer.Text()))
+			eventFunc(tokenType, string(tokenizer.Text()), nil)
 		}
 	}
 }
 
+// NewTextParser parse HTML from source to Text
+func (txt *Text) NewTextParser(source string) {
+	var currLine TextLine
+	var currBlock TextBlock
+
+	flushLine := func() {
+		txt.lines = append(txt.lines, currLine)
+		currLine.blocks = nil
+		currLine.width = 0
+	}
+
+	wrapText := func(text string) {
+		var inText bool
+
+		flushTextBlock := func() {
+			if currLine.width+currBlock.width > txt.width {
+				flushLine()
+			}
+
+			if currBlock.text != "" {
+				// append current text block to current text line
+				currLine.blocks = append(currLine.blocks, currBlock)
+				currLine.width += currBlock.width
+				// clear current text block
+				currBlock.text = ""
+				currBlock.width = 0
+			}
+		}
+
+		for _, ch := range text {
+			switch ch {
+			case ' ':
+				if inText {
+					flushTextBlock()
+				}
+				inText = false
+
+			default:
+				if !inText {
+					flushTextBlock()
+				}
+				inText = true
+			}
+
+			currBlock.text += string(ch)
+			currBlock.width++
+		}
+
+		// flush last text block
+		flushTextBlock()
+	}
+
+	eventFunc := func(tt html.TokenType, token string, attrs []tagAttr) {
+		switch tt {
+		case html.StartTagToken:
+			switch token {
+			case "br":
+				flushLine()
+
+			case "a":
+			}
+
+		case html.EndTagToken:
+
+		case html.TextToken:
+			wrapText(token)
+
+		default:
+			panic(fmt.Sprintf("Unknown TokenType %v", tt))
+		}
+	}
+
+	ParseHTML2(source, eventFunc)
+}
+
+func parseText2(source string, width int) Text {
+	var txt Text
+	txt.width = width
+	txt.NewTextParser(source)
+
+	return txt
+}
+
+// Draw drawing content of ThreadView on screens
 func (tv *ThreadView) Draw(screen tcell.Screen) {
 	x, y, w, h := tv.Box.GetInnerRect()
 
 	if tv.oldWidth != w {
 		// reparse text
-		tv.tlines = parseText(tv.text, w)
+		tv.tlines = parseText2(tv.text, w)
 		tv.color++
 		tv.oldWidth = w
 	}
@@ -240,6 +239,7 @@ func (tv *ThreadView) Draw(screen tcell.Screen) {
 	}
 }
 
+// InputHandler handle input
 func (tv *ThreadView) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return tv.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 
@@ -259,8 +259,15 @@ func (tv *ThreadView) InputHandler() func(event *tcell.EventKey, setFocus func(p
 	})
 }
 
-/*
-func (tv *ThreadView) SetRect(x, y, w, h int) {
-	tv.Box.SetRect(x, y, w, h)
+// RenderThread2 join all posts text to one big
+func (ib *ImageBoard) RenderThread2(boardID string, threadID PostID) string {
+
+	var result string
+	for _, postID := range ib.Boards[boardID].Threads[threadID].Posts {
+		post := ib.Boards[boardID].Posts[postID]
+		result += post.Name + "<br>"
+		result += post.Comment + "<br><br>"
+	}
+
+	return result
 }
-*/
