@@ -83,6 +83,8 @@ func Display() {
 	tl.SetSelectedFunc(func(index int, mainText string, secondaryText string, shortcut rune) {
 		if boardID != "" {
 			thID := ib.Boards[boardID].ThreadsIndex[index]
+			/*post := ib.Boards[boardID].Posts[thID]
+			tv.SetPost(&post)*/
 			ib.UpdateThread(boardID, thID)
 			t := ib.RenderThread(boardID, thID)
 			_ = t
